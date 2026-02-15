@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PORTAL OS: ULTIMATE</title>
+    <!-- Socket.io (サーバー通信用) -->
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #020204; --sidebar: rgba(8, 8, 10, 0.8); --card: rgba(255, 255, 255, 0.03); 
+            --border: rgba(255, 255, 255, 0.08); --text: #f0f0f0; --text-dim: #71717a; 
+            --accent: #6366f1; --accent-glow: rgba(99, 102, 241, 0.3); --blur: 20px;
+            --card-width: 200px;
+        }
+        * { box-sizing: border-box; transition: transform 0.2s, background 0.2s, border 0.2s; }
+        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; 
+            background-image: radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.1) 0%, transparent 40%), radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.1) 0%, transparent 40%);
+        }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        aside { width: 280px; min-width: 280px; background: var(--sidebar); backdrop-filter: blur(var(--blur)); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; z-index: 100; }
+        .brand { padding: 30px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .logo { font-size: 1.1rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+        .logo span { color: var(--accent); }
+        .stats { font-size: 0.65rem; color: var(--accent); margin-top: 8px; font-family: 'JetBrains Mono'; }
+
+        .nav-container { flex: 1; overflow-y: auto; padding: 10px; cursor: grab; user-select: none; }
+        .nav-container:active { cursor: grabbing; }
+        .nav-item { padding: 11px 14px; margin-bottom: 2px; border-radius: 10px; cursor: pointer; color: var(--text-dim); font-size: 0.78rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; }
+        .nav-item:hover { background: rgba(255,255,255,0.04); color: #fff; transform: translateX(5px); }
+        .nav-item.active { background: rgba(99, 102, 241, 0.15); color: var(--accent); border-color: rgba(99,102,241,0.3); }
+        .badge { font-size: 0.6rem; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 5px; color: #555; }
+
+        main { flex: 1; display: flex; flex-direction: column; height: 100vh; position: relative; }
+        .header { padding: 20px 40px; background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); z-index: 10; display: flex; justify-content: space-between; align-items: center; }
+        .search-wrap { position: relative; width: 350px; }
+        .search-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 11px 15px 11px 40px; border-radius: 10px; color: #fff; outline: none; font-size: 0.85rem; }
+        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-glow); background: #000; }
+        .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #444; }
+
+        .content-scroll { flex: 1; overflow-y: auto; padding: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-width), 1fr)); gap: 12px; padding-bottom: 100px; }
+
+        .card { background: var(--card); border: 1px solid var(--border); padding: 18px 12px; border-radius: 12px; text-decoration: none; color: var(--text); display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .card:hover { transform: translateY(-4px); border-color: var(--accent); background: rgba(255,255,255,0.06); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .card img { width: 32px; height: 32px; margin-bottom: 10px; border-radius: 6px; background: #000; object-fit: contain; }
+        .card-name { font-weight: 700; font-size: 0.8rem; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-url { font-size: 0.62rem; color: var(--text-dim); font-family: 'JetBrains Mono'; margin-top: 4px; }
+
+        /* 管理者パネル */
+        .custom-page { background: var(--card); padding: 40px; border-radius: 20px; border: 1px solid var(--border); max-width: 800px; margin: 0 auto; line-height: 1.8; backdrop-filter: blur(10px); }
+        .custom-page h2 { color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-top: 0; }
+        .discord-btn { display: inline-block; background: #5865F2; color: white !important; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-top: 20px; box-shadow: 0 4px 15px rgba(88, 101, 242, 0.4); }
+        .admin-login input { padding: 10px; border-radius: 5px; border: 1px solid var(--border); background: #000; color: #fff; width: 100%; margin-bottom: 10px; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .stat-box { background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid var(--border); }
+        .stat-val { font-size: 1.8rem; font-weight: 800; color: var(--accent); font-family: 'JetBrains Mono'; }
+        .stat-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            aside { width: 100%; min-width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+            .nav-container { display: flex; overflow-x: auto; height: 60px; align-items: center; padding: 0 10px; }
+            .nav-item { margin-bottom: 0; margin-right: 8px; white-space: nowrap; }
+            .header { padding: 15px 20px; flex-direction: column; gap: 10px; }
+            .search-wrap { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="brand">
+            <div class="logo">PORTAL <span>OS v7</span></div>
+            <div id="stats" class="stats">Connecting to Server...</div>
+        </div>
+        <div id="navArea" class="nav-container"></div>
+    </aside>
+    <main>
+        <div class="header">
+            <h1 id="pageTitle" style="font-size:1.3rem;">Home</h1>
+            <div class="search-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" class="search-input" placeholder="Search 790+ sites... (/)">
+            </div>
+        </div>
+        <div id="contentArea" class="content-scroll"></div>
+    </main>
+
+    <script>
+        // --- サーバー通信初期化 ---
+        const socket = io();
+        let serverStats = { activeUsers: 0, totalVisits: 0, totalClicks: 0 };
+        
+        socket.on('statsUpdate', (data) => {
+            serverStats = data;
+            document.getElementById('stats').textContent = `Active Users: ${data.activeUsers}`;
+            
+            // 【修正点】ダッシュボードが開かれていれば、リアルタイムで数値を更新
+            const liveEl = document.getElementById('live-count');
+            const visitsEl = document.getElementById('total-visits');
+            const clicksEl = document.getElementById('total-clicks');
+            if(liveEl) liveEl.textContent = data.activeUsers;
+            if(visitsEl) visitsEl.textContent = data.totalVisits.toLocaleString();
+            if(clicksEl) clicksEl.textContent = data.totalClicks.toLocaleString();
+        });
+
+        // --- 設定エリア ---
+        const ADMIN_NAME = "ABS Owner";
+        const PROF_ICON = "https://vvrl.cc/jp/ga2yu3"; 
+        const DISCORD_URL = "https://discord.gg/XQFg36j6";
+        const ADMIN_PASS = "admin123";
+
+        let isAdmin = false;
+        let sessionStart = Date.now();
+
+        const EDIT_PAGES = {
+            "ℹ️ Info": `
+                <div class="custom-page">
+                    <h2>Portal v1.0</h2>
+                    <p>厳選された実在サイトのみを収録したポータルです。詐欺サイトは一切ありません。</p>
+                    <p>Total Count: <strong id="info-count" style="color:var(--accent)">-</strong> Verified Links</p>
+                    <div style="background:rgba(255,255,255,0.03); padding:20px; border-radius:10px; margin-top:20px; border:1px solid var(--border);">
+                        <ul style="margin:0; padding-left:20px;">
+                            <li>Status: <span style="color:#10b981">Online</span></li>
+                            <li>Last Update: 2026.02.15</li>
+                            <li>Web Ver.:1.0</li>
+                        </ul>
+                    </div>
+                </div>`,
+            "👨‍💻 Creator": `
+                <div class="custom-page" style="text-align:center;">
+                    <img src="${PROF_ICON}" onerror="this.src='https://ui-avatars.com/api/?name=Admin&background=6366f1&color=fff&size=256'"
+                         style="width:110px; height:110px; border-radius:50%; margin:0 auto 20px; display:block; border:4px solid var(--accent); object-fit: cover; box-shadow: 0 0 25px var(--accent-glow);">
+                    <h2 style="border:none;">${ADMIN_NAME}</h2>
+                    <p style="color:var(--text-dim); margin-top:-10px; font-family:'JetBrains Mono'; font-weight:bold;">PORTAL ARCHITECT</p>
+                    <p style="margin-top:20px;">約800個の厳選サイトを管理しています。追加/削除依頼はDiscordへ。</p>
+                    <div style="margin-top:20px;"><a href="${DISCORD_URL}" target="_blank" class="discord-btn">Discordグループ</a></div>
+                </div>`
+        };
+
+        const DB_PACK = {
+            "🏠 Top Essential": "Google|google.com,YouTube|youtube.com,Facebook|facebook.com,Amazon|amazon.com,X|twitter.com,Instagram|instagram.com,LinkedIn|linkedin.com,Reddit|reddit.com,Wikipedia|wikipedia.org,ChatGPT|chatgpt.com,Netflix|netflix.com,Yahoo!|yahoo.com,GitHub|github.com,Pinterest|pinterest.com,Bing|bing.com,eBay|ebay.com,Twitch|twitch.tv,Spotify|spotify.com,Apple|apple.com,Microsoft|microsoft.com,Discord|discord.com,Zoom|zoom.us,TikTok|tiktok.com,Dropbox|dropbox.com,Tumblr|tumblr.com,Quora|quora.com,Adobe|adobe.com,DuckDuckGo|duckduckgo.com,Yahoo JP|yahoo.co.jp,Rakuten|rakuten.co.jp,PayPay|paypay.ne.jp,Mercari|mercari.com,LINE|line.me,Note|note.com,Qiita|qiita.com,Zenn|zenn.dev,Mercari JP|jp.mercari.com,TVer|tver.jp,AbemaTV|abema.tv,Niconico|nicovideo.jp,DeepL|deepl.com",
+            "🤖 AI: LLM & Chat": "OpenAI|openai.com,Claude|claude.ai,Gemini|gemini.google.com,Mistral AI|mistral.ai,Perplexity|perplexity.ai,HuggingFace|huggingface.co,Jasper|jasper.ai,Copy.ai|copy.ai,ChatPDF|chatpdf.com,LangChain|langchain.com,AutoGPT|autogpt.net,Cohere|cohere.com,Poe|poe.com,Anakin AI|anakin.ai,Grok|x.ai,Bing Chat|bing.com/chat,You.com|you.com,Writesonic|writesonic.com,Character.ai|character.ai,Replika|replika.com,Pi AI|pi.ai,Phind|phind.com,Blackbox AI|blackbox.ai,Together AI|together.ai,Groq|groq.com",
+            "🤖 AI: Media/Code": "Midjourney|midjourney.com,StableDiffusion|stability.ai,Civitai|civitai.com,Leonardo AI|leonardo.ai,RunwayML|runwayml.com,Pika Art|pika.art,Suno AI|suno.com,Udio AI|udio.com,ElevenLabs|elevenlabs.io,HeyGen|heygen.com,Luma AI|lumalabs.ai,Krea AI|krea.ai,v0.dev|v0.dev,Cursor AI|cursor.com,Synthesia|synthesia.io,Murf AI|murf.ai,Speechify|speechify.com,Resemble AI|resemble.ai,Clipdrop|clipdrop.co,Remove.bg|remove.bg,Tabnine|tabnine.com,Topaz Labs|topazlabs.com,Veed.io|veed.io,Descript|descript.com,D-ID|d-id.com",
+            "💻 Dev: Frontend": "React|react.dev,Next.js|nextjs.org,Vue.js|vuejs.org,Nuxt|nuxt.com,Svelte|svelte.dev,SolidJS|solidjs.com,Angular|angular.io,Astro|astro.build,Remix|remix.run,Tailwind CSS|tailwindcss.com,Bootstrap|getbootstrap.com,MUI|mui.com,Chakra UI|chakra-ui.com,Shadcn UI|ui.shadcn.com,Framer Motion|framer.com,Three.js|threejs.org,Vite|vitejs.dev,Webpack|webpack.js.org,TypeScript|typescriptlang.org,Storybook|storybook.js.org,TanStack|tanstack.com,Zustand|zustand.docs.pmnd.rs,Redux|redux.js.org,Lucide Icons|lucide.dev,FontAwesome|fontawesome.com,Iconify|iconify.design,Can I Use|caniuse.com,GSAP|greensock.com,Codepen|codepen.io,JSFiddle|jsfiddle.net,Vercel|vercel.com,Netlify|netlify.com,Web.dev|web.dev,Lighthouse|developer.chrome.com/docs/lighthouse,PWA|web.dev/apps,Mantine|mantine.dev",
+            "⚙️ Dev: Backend & DB": "Node.js|nodejs.org,Deno|deno.com,Bun|bun.sh,Python|python.org,Go|go.dev,Rust|rust-lang.org,Ruby|ruby-lang.org,PHP|php.net,Java|java.com,Kotlin|kotlinlang.org,Docker|docker.com,Kubernetes|kubernetes.io,Terraform|terraform.io,AWS|aws.amazon.com,Azure|azure.com,GCP|cloud.google.com,Heroku|heroku.com,Railway|railway.app,Render|render.com,Fly.io|fly.io,Supabase|supabase.com,Firebase|firebase.google.com,Appwrite|appwrite.io,Pocketbase|pocketbase.io,Hasura|hasura.io,MongoDB|mongodb.com,PostgreSQL|postgresql.org,MySQL|mysql.com,Redis|redis.io,PlanetScale|planetscale.com,Neon DB|neon.tech,Elasticsearch|elastic.co,Kafka|kafka.apache.org,Nginx|nginx.org,Apache|httpd.apache.org,Caddy|caddyserver.com,Postman|postman.com,Insomnia|insomnia.rest,Swagger|swagger.io,Strapi|strapi.io,Sanity|sanity.io,Django|djangoproject.com,FastAPI|fastapi.tiangolo.com,Laravel|laravel.com,Rails|rubyonrails.org",
+            "🎨 Design: Tools": "Figma|figma.com,Canva|canva.com,Adobe CC|adobe.com,Sketch|sketch.com,Affinity|affinity.serif.com,Dribbble|dribbble.com,Behance|behance.net,ArtStation|artstation.com,Adobe Color|color.adobe.com,Miro|miro.com,Lucidchart|lucidchart.com,Excalidraw|excalidraw.com,Spline|spline.design,Blender|blender.org,LottieFiles|lottiefiles.com,Rive|rive.app,Photopea|photopea.com,FlatIcon|flaticon.com,Icon8|icons8.com,UI8|ui8.net,Creative Market|creativemarket.com,Envato|envato.com,Framer|framer.com,Webflow|webflow.com,Bubble|bubble.io,Carrd|carrd.co,Readymag|readymag.com,Typeform|typeform.com,Procreate|procreate.com,GIMP|gimp.org,Inkscape|inkscape.org,Krita|krita.org",
+            "🎨 Design: Assets": "Unsplash|unsplash.com,Pexels|pexels.com,Pixabay|pixabay.com,Shutterstock|shutterstock.com,Getty Images|gettyimages.com,Freepik|freepik.com,Vecteezy|vecteezy.com,Coolors|coolors.co,Color Hunt|colorhunt.co,RemoveBG|remove.bg,TinyPNG|tinypng.com,Squoosh|squoosh.app,SVGOMG|jakearchibald.github.io/svgomg,Dafont|dafont.com,FontSquirrel|fontsquirrel.com,Fonts.com|fonts.com,Abstract|abstract.com,Zeplin|zeplin.io,InVision|invisionapp.com,Marvel|marvelapp.com,Rawpixel|rawpixel.com,LogoJoy|looka.com,Canva Pro|canva.com/pro,Mobbin|mobbin.com,SiteInspire|siteinspire.com,Awwwards|awwwards.com,Designspiration|designspiration.com",
+            "🔒 Security & OSINT": "HaveIBeenPwned|haveibeenpwned.com,VirusTotal|virustotal.com,UrlScan|urlscan.io,Shodan|shodan.io,Censys|censys.io,BinaryEdge|binaryedge.io,GreyNoise|greynoise.io,Exploit-DB|exploit-db.com,CVE Details|cvedetails.com,NVD|nvd.nist.gov,OWASP|owasp.org,HackTheBox|hackthebox.com,TryHackMe|tryhackme.com,ProtonVPN|protonvpn.com,NordVPN|nordvpn.com,Tor Project|torproject.org,Tails|tails.net,Kali Linux|kali.org,Wireshark|wireshark.org,Metasploit|metasploit.com,Burp Suite|portswigger.net,Ghidra|ghidra-sre.org,SpiderFoot|spiderfoot.net,OSINT Framework|osintframework.com,IntelTechniques|inteltechniques.com,Epieos|epieos.com,Hunter.io|hunter.io,Intelligence X|intelx.io,Who.is|who.is,BuiltWith|builtwith.com,Wappalyzer|wappalyzer.com,LeakCheck|leakcheck.io,Bugcrowd|bugcrowd.com,HackerOne|hackerone.com",
+            "💰 Web3 & Crypto": "TradingView|tradingview.com,Yahoo Finance|finance.yahoo.com,MarketWatch|marketwatch.com,CoinMarketCap|coinmarketcap.com,CoinGecko|coingecko.com,DefiLlama|defillama.com,Dune|dune.com,Etherscan|etherscan.io,BscScan|bscscan.com,PolygonScan|polygonscan.com,Solscan|solscan.io,Binance|binance.com,Coinbase|coinbase.com,Kraken|kraken.com,Bybit|bybit.com,OKX|okx.com,MetaMask|metamask.io,Phantom|phantom.app,Uniswap|uniswap.org,PancakeSwap|pancakeswap.finance,OpenSea|opensea.io,Magic Eden|magiceden.io,StepN|stepn.com,PayPal|paypal.com,Stripe|stripe.com,Wise|wise.com,Revolut|revolut.com,SBI Bank|netbk.co.jp,三菱UFJ|mufg.jp,三井住友|smbc.co.jp,ゆうちょ|jp-bank.japanpost.jp,Glassnode|glassnode.com,Messari|messari.io,Nansen|nansen.ai,TokenTerminal|tokenterminal.com,Aave|aave.com,Curve|curve.fi,MakerDAO|makerdao.com,LooksRare|looksrare.org,Blur|blur.io,Zapper|zapper.fi",
+            "📚 Study & Science": "Wikipedia|wikipedia.org,Britannica|britannica.com,Google Scholar|scholar.google.com,ResearchGate|researchgate.net,arXiv|arxiv.org,PubMed|pubmed.ncbi.nlm.nih.gov,JSTOR|jstor.org,Sci-Hub|sci-hub.se,LibGen|libgen.is,Gutenberg|gutenberg.org,Open Library|openlibrary.org,Internet Archive|archive.org,World Bank|worldbank.org,Statista|statista.com,Our World in Data|ourworldindata.org,TED JP|ted.com,Udemy|udemy.com,Coursera|coursera.org,edX|edx.org,Khan Academy|khanacademy.org,Skillshare|skillshare.com,Duolingo|duolingo.com,Progate|prog-8.com,LeetCode|leetcode.com,freeCodeCamp|freecodecamp.org,Stanford|stanford.edu,Harvard|harvard.edu,UTokyo|u-tokyo.ac.jp,Nature|nature.com,Science Mag|sciencemag.org,WolframAlpha|wolframalpha.com",
+            "🏛 Gov & Global": "NASA|nasa.gov,UN|un.org,UNESCO|unesco.org,WHO|who.int,CIA|cia.gov,FBI|fbi.gov,White House|whitehouse.gov,Gov JP|e-gov.go.jp,MEXT JP|mext.go.jp,METI JP|meti.go.jp,MLIT JP|mlit.go.jp,MIC JP|soumu.go.jp,MOF JP|mof.go.jp,MHLW JP|mhlw.go.jp,MAFF JP|maff.go.jp,MOE JP|env.go.jp,MOD JP|mod.go.jp,NPA JP|npa.go.jp,FSA JP|fsa.go.jp,CAA JP|caa.go.jp,PPC JP|ppc.go.jp,Japan Post|japanpost.jp,JR East|jreast.co.jp,JR West|westjr.co.jp,JAXA|jaxa.jp,RIKEN|riken.jp,JMA|jma.go.jp,JPO|jpo.go.jp,JBIC|jbic.go.jp",
+            "📺 News & Global": "The Verge|theverge.com,TechCrunch|techcrunch.com,Wired|wired.com,Gizmodo|gizmodo.com,Engadget|engadget.com,Hacker News|news.ycombinator.com,CNN|cnn.com,BBC|bbc.com,Reuters|reuters.com,Bloomberg|bloomberg.com,WSJ|wsj.com,FT|ft.com,Forbes|forbes.com,Nikkei JP|nikkei.com,Asahi|asahi.com,Mainichi|mainichi.jp,Yomiuri|yomiuri.co.jp,Japan Times|japantimes.co.jp,Gigazine|gigazine.net,ITmedia|itmedia.co.jp,Impress Watch|watch.impress.co.jp,Business Insider|businessinsider.jp,HuffPost JP|huffingtonpost.jp,Google News|news.google.com,Yahoo News|news.yahoo.co.jp",
+            "🎬 Media & Stream": "YouTube|youtube.com,Twitch|twitch.tv,Netflix|netflix.com,Prime Video|primevideo.com,Disney+|disneyplus.com,Hulu|hulu.com,U-NEXT|video.unext.jp,Abema|abema.tv,TVer|tver.jp,DAZN|dazn.com,Niconico|nicovideo.jp,Spotify|spotify.com,Apple Music|music.apple.com,SoundCloud|soundcloud.com,Kindle|amazon.com/kindle,Audible|audible.com,Radiko|radiko.jp,IMDb|imdb.com,Rotten Tomatoes|rottentomatoes.com,Letterboxd|letterboxd.com,MyAnimeList|myanimelist.net,Crunchyroll|crunchyroll.com,Bilibili|bilibili.com,Vimeo|vimeo.com,DailyMotion|dailymotion.com",
+            "🎮 Game & Community": "Steam|steampowered.com,Epic Games|epicgames.com,Roblox|roblox.com,Minecraft|minecraft.net,Unity|unity.com,Unreal Engine|unrealengine.com,IGN|ign.com,GameSpot|gamespot.com,Famitsu|famitsu.com,GameWith|gamewith.jp,Altema|altema.jp,Kamigame|kamigame.jp,Valorant|playvalorant.com,League of Legends|leagueoflegends.com,Apex Legends|ea.com/apex-legends,Genshin Impact|genshin.hoyoverse.com,Pokemon|pokemon.co.jp,Speedrun|speedrun.com,Nexus Mods|nexusmods.com,Itch.io|itch.io,GOG|gog.com,Battle.net|blizzard.com,Nintendo JP|nintendo.co.jp,PlayStation JP|playstation.com/ja-jp",
+            "🛒 Shopping": "Amazon|amazon.com,Amazon JP|amazon.co.jp,Rakuten Ichiba|rakuten.co.jp,Yahoo Shop|shopping.yahoo.co.jp,AliExpress|aliexpress.com,Temu|temu.com,eBay|ebay.com,Etsy|etsy.com,Qoo10|qoo10.jp,iHerb|iherb.com,ZozoTown|zozo.jp,Buyma|buyma.com,StockX|stockx.com,Farfetch|farfetch.com,Mercari|mercari.com,DMM|dmm.com,Yodobashi|yodobashi.com,BicCamera|biccamera.com,Yamada Denki|yamada-denkiweb.com,Nojima|nojima.co.jp",
+            "🧥 Fashion & Home": "Uniqlo|uniqlo.com,GU|gu-global.com,ZARA|zara.com,H&M|hm.com,Nike|nike.com,Adidas|adidas.jp,ABC-Mart|abc-mart.net,Workman|workman.jp,Nitori|nitori-net.jp,IKEA|ikea.com,Muji|muji.com,Francfranc|francfranc.com,Loft|loft.co.jp,Tokyu Hands|hands.net,Daiso|daiso-sangyo.co.jp,Seria|seria-group.com,CanDo|cando-web.co.jp,3Coins|3coins.jp,SHEIN|shein.com",
+            "🏠 Housing & Real Estate": "Suumo|suumo.jp,Homes.jp|homes.co.jp,Athome|athome.co.jp,Chintai|chintai.net,Goodroom|goodrooms.jp,Stayjapan|stayjapan.com,Zillow|zillow.com,Realtor|realtor.com,Redfin|redfin.com,Airbnb|airbnb.com,Booking.com|booking.com,Agoda|agoda.com,Expedia|expedia.com",
+            "🍔 Food & Life": "Uber Eats|ubereats.com,Demae-can|demae-can.com,McDonald's|mcdonalds.co.jp,Starbucks|starbucks.co.jp,Cookpad|cookpad.com,Kurashiru|kurashiru.com,Delish Kitchen|delishkitchen.tv,Tabelog|tabelog.com,HotPepper|hotpepper.jp,Gurunavi|gnavi.co.jp,Retty|retty.me,Matsumotokiyoshi|matsukiyo.co.jp,Welcia|welcia-yakkyoku.co.jp,Sugi Pharmacy|sugi-net.jp,Costco JP|costco.co.jp,Seijo Ishii|seijoishii.co.jp,Kaldi JP|kaldi.co.jp,Pizza Hut|pizzahut.jp,Domino's|dominos.jp,KFC|kfc.co.jp,Mos Burger|mos.jp",
+            "✈️ Travel & Transport": "Google Maps|maps.google.com,FlightRadar24|flightradar24.com,MarineTraffic|marinetraffic.com,Windy|windy.com,EarthCam|earthcam.com,TripAdvisor|tripadvisor.com,Skyscanner|skyscanner.net,Kayak|kayak.com,Jalan|jalan.net,Rakuten Travel|travel.rakuten.co.jp,Ikyu|ikyu.com,Uber|uber.com,Grab|grab.com,Waze|waze.com,Jorudan|jorudan.co.jp,Navitime|navitime.co.jp,Yahoo Transit|transit.yahoo.co.jp,ANA|ana.co.jp,JAL|jal.co.jp,Couchsurfing|couchsurfing.com,Hostelworld|hostelworld.com",
+            "📂 Cloud & File": "Dropbox|dropbox.com,OneDrive|onedrive.com,Box|box.com,Mega|mega.nz,ProtonMail|proton.me,GigaFile|gigafile.nu,Firestorage|firestorage.jp,WeTransfer|wetransfer.com,Send Anywhere|send-anywhere.com,MediaFire|mediafire.com,Google Drive|drive.google.com,Google Photos|photos.google.com,iCloud|icloud.com,pCloud|pcloud.com,Sync|sync.com",
+            "🛠 Utility & Tools": "Convertio|convertio.co,I Love PDF|ilovepdf.com,Smallpdf|smallpdf.com,PDF Candy|pdfcandy.com,CloudConvert|cloudconvert.com,Online-Convert|online-convert.com,Zamzar|zamzar.com,TinyPNG|tinypng.com,Squoosh|squoosh.app,Remove.bg|remove.bg,Evernote|evernote.com,Simplenote|simplenote.com,Joplin|joplinapp.org,Obsidian|obsidian.md,Raindrop|raindrop.io,Time.is|time.is,Speedtest|speedtest.net,VirusTotal|virustotal.com,WolframAlpha|wolframalpha.com,DNS Checker|dnschecker.org,Sejda|sejda.com,World Time Buddy|worldtimebuddy.com,Calculator.net|calculator.net,Bitwarden|bitwarden.com,1Password|1password.com,Authy|authy.com,Yubico|yubico.com,Temp Mail|temp-mail.org",
+            "🔞 18+ (Adult & R18)": "Pornhub|pornhub.com,Xvideos|xvideos.com,Xhamster|xhamster.com,Redtube|redtube.com,Xroll|xroll.net,MissAV|missav.ai,Jable|jable.tv,TKTube|tktube.com,Xfree|xfree.com,AstalaVR|astalavr.com,ThisAV|thisav.me,Monsnode|monsnode.com,SpankBang|jp.spankbang.com,Tube8|jp.tube8.com,SEXVID|sexvid.xxx,Javbangers|javbangers.com,TokyoMotion|tokyomotion.net,Twidouga|twidouga.net,EPORNER|eporner.com,ANIPORN|aniporn.com,Rule34 Video|rule34video.com,CrazyShit|crazyshit.com,ChameleonClip|chameleonclip.com,FC2 Adult|video.fc2.com,UraAgesage|asg.to,SexCelebrity|sexcelebrity.net,DeepFakePorn|deepfakeporn.net,Pixiv R18|pixiv.net,DMM R18|dmm.co.jp,Caribbeancom|caribbeancom.com,Heyzo|heyzo.com,1pondo|1pondo.tv,Pacopacomama|pacopacomama.com,Adult.com|adult.com,YouPorn|youporn.com,Brazzers|brazzers.com,Reality Kings|realitykings.com,BangBros|bangbros.com,Motherless|motherless.com,Heavy-R|heavy-r.com,Thumbzilla|thumbzilla.com,PornTrex|porntrex.com,DaftSex|daftsex.com,Erovideo|erovideo.net,JavThe|javthe.com,JavMost|javmost.com,Hanime|hanime.tv,nHentai|nhentai.net,Hitomi.la|hitomi.la,DLsite|dlsite.com,AVGLE|avgle.com,Simpcity|simpcity.su,Luscious|luscious.net,Gelbooru|gelbooru.com,Danbooru|danbooru.donmai.us,Konachan|konachan.com,Yande.re|yande.re,E-Hentai|e-hentai.org,ExHentai|exhentai.org,Tsumino|tsumino.com,Rule34.paheal|rule34.paheal.net,Cumlouder|cumlouder.com,Txxx|txxx.com,Vjav|vjav.com,Auporn|auporn.com,Netporn|netporn.com,Hentaigasm|hentaigasm.com,Hentaihaven|hentaihaven.red,3D Hentai|3dhentai.net,Tube8|tube8.com,YouJizz|youjizz.com,PornMD|pornmd.com,TNAFlix|tnaflix.com,SpankWire|spankwire.com,YouJizz|youjizz.com,Porn300|porn300.com,Bunkr|bunkr.is,Cyberdrop|cyberdrop.me,Fapello|fapello.com,Thothub|thothub.to,Skeet|skeet.com,EroMe|erome.com,JavLibrary|javlibrary.com,JavBus|javbus.com,JavGuru|jav.guru,Supjav|supjav.com,JavTiful|javtiful.com,Javcl|javcl.com,BestJavPorn|bestjavporn.com,JavMix|javmix.tv,JavSub|javsub.co,JavPorn|javporn.tv,JavPro|jav.pro,JavPapy|javpapy.com,JavHD|javhd.com,JavLand|javland.com,JavSeen|javseen.tv,JavFree|javfree.me,JavHentai|javhentai.net,JavDatabase|javdatabase.com,HentaiRead|hentairead.com,Hentai2Read|hentai2read.com,HentaiEra|hentaiera.com,HentaiManga|hentaimanga.me,HentaiForce|hentaiforce.net,HentaiNexus|hentainexus.com,Pururin|pururin.to,HentaiStream|hentaistream.moe,Ohentai|ohentai.org,HentaiMama|hentaimama.io,HentaiPlay|hentaiplay.net,Doujins|doujins.com,MangaDex R18|mangadex.org,Iwara|iwara.tv,Ecchiiwara|ecchi.iwara.tv,Reddit NSFW|reddit.com/nsfw,Chaturbate|chaturbate.com,MyFreeCams|myfreecams.com,Stripchat|stripchat.com,FetLife|fetlife.com,Tinder NSFW|tinder.com,Bumble NSFW|bumble.com,Grindr NSFW|grindr.com,Scruff NSFW|scruff.com,Jackd NSFW|jackd.com,Feeld NSFW|feeld.co,Pure App|pure.app,Hinge NSFW|hinge.co,Omiai|fb.omiai-jp.com,Pairs|pairs.lv,Tapple|tapple.me,With|with.is,Dine|dine.com,ZexyEnmusubi|zexy-enmusubi.net,10musume|10musume.com,H4610|h4610.com,C0930|c0930.com,Kin8tengoku|kin8tengoku.com,G-Area|g-area.org,DrTuber|drtuber.com,Upornia|upornia.com,4tube|4tube.com,PornRabbit|pornrabbit.com,Onetize|onetize.com,Txvideos|txvideos.com,Xfap|xfap.com,Sxyprn|sxyprn.com,Fullporner|fullporner.com,UpperCut|uppercut.com,PornStar|pornstar.com,AVN|avn.com,XBIZ|xbiz.com,FreeOnes|freeones.com,AdultDVD|adultdvdempire.com,HotMovies|hotmovies.com,Sugar|sugar.com,AdultFriendFinder|adultfriendfinder.com,AshleyMadison|ashleymadison.com,Fling|fling.com,BeNaughty|benaughty.com,Hookup|hookup.com,QuickFlirt|quickflirt.com"
+        };
+        const SPECIAL_TABS = ["⚙️ Settings", "ℹ️ Info", "👨‍💻 Creator"];
+        let allCategories = [];
+        let currentIdx = 0;
+
+        function init() {
+            try {
+                for (const [key, val] of Object.entries(DB_PACK)) {
+                    const links = val.split(',').map(s => {
+                        const parts = s.split('|').map(x => x.trim());
+                        if (parts.length < 2) return null;
+                        return { name: parts[0], url: `https://${parts[1]}` };
+                    }).filter(x => x !== null);
+                    allCategories.push({ type: 'link', name: key, items: links });
+                }
+                SPECIAL_TABS.forEach(t => allCategories.push({ type: 'special', name: t }));
+
+                const total = allCategories.reduce((acc, c) => acc + (c.items ? c.items.length : 0), 0);
+                document.getElementById('stats').textContent = `Total: ${total} Verified Sites`;
+
+                renderNav();
+                renderContent(0);
+                enableDragging();
+            } catch (e) {
+                console.error("Initialization failed", e);
+                document.getElementById('stats').textContent = "Error loading database";
+            }
+        }
+
+        function renderNav() {
+            const nav = document.getElementById('navArea'); nav.innerHTML = '';
+            allCategories.forEach((cat, idx) => {
+                const d = document.createElement('div');
+                d.className = `nav-item ${idx === 0 ? 'active' : ''}`;
+                d.innerHTML = `<span>${cat.name}</span>${cat.items ? `<span class="badge">${cat.items.length}</span>` : ''}`;
+                d.onclick = () => {
+                    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                    d.classList.add('active'); currentIdx = idx; renderContent(idx);
+                };
+                nav.appendChild(d);
+            });
+        }
+
+        function renderContent(idx) {
+            const data = allCategories[idx];
+            const area = document.getElementById('contentArea');
+            const search = document.querySelector('.search-wrap');
+            document.getElementById('pageTitle').textContent = data.name;
+            area.innerHTML = ''; area.scrollTop = 0;
+
+            if (data.type === 'special') {
+                search.style.visibility = 'hidden';
+                if (data.name.includes('Settings')) {
+                    // Admin Panel logic for Settings tab
+                    let dashboardHTML = '';
+                    if (isAdmin) {
+                        const duration = Math.floor((Date.now() - sessionStart) / 1000);
+                        const mins = Math.floor(duration / 60);
+                        dashboardHTML = `
+                        <div class="custom-page">
+                            <h2>Admin Dashboard</h2>
+                            <div class="dashboard-grid">
+                                <div class="stat-box">
+                                    <div class="stat-label">Realtime Users</div>
+                                    <div class="stat-val" id="live-count">${serverStats.activeUsers}</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-label">Total Visits</div>
+                                    <div class="stat-val" id="total-visits">${serverStats.totalVisits.toLocaleString()}</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-label">Total Clicks</div>
+                                    <div class="stat-val" id="total-clicks">${serverStats.totalClicks.toLocaleString()}</div>
+                                </div>
+                                 <div class="stat-box">
+                                    <div class="stat-label">Your Session</div>
+                                    <div class="stat-val">${mins}m ${duration % 60}s</div>
+                                </div>
+                            </div>
+                            <button class="discord-btn" style="background:#333; margin-top:20px; width:100%;" onclick="isAdmin=false; renderContent(currentIdx);">Logout</button>
+                        </div>`;
+                    } else {
+                        dashboardHTML = `
+                        <div class="custom-page">
+                            <h2>Admin Login</h2>
+                            <div class="admin-login" style="max-width:300px; margin:0 auto;">
+                                <input type="password" id="adminPass" placeholder="Password" style="width:100%; padding:10px; border-radius:5px; border:1px solid var(--border); background:#000; color:#fff; margin-bottom:10px;">
+                                <button class="discord-btn" style="margin-top:0;" onclick="checkAdmin()">Login</button>
+                            </div>
+                            <hr style="border:0; border-top:1px solid var(--border); margin:40px 0;">
+                            <h2>Appearance</h2>
+                            <div style="display:flex;gap:15px;margin-top:20px;">
+                                ${['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#ef4444'].map(c => `<div style="width:40px;height:40px;background:${c};border-radius:50%;cursor:pointer;" onclick="setColor('${c}')"></div>`).join('')}
+                            </div>
+                        </div>`;
+                    }
+                    area.innerHTML = dashboardHTML;
+                } else { 
+                    const total = document.getElementById('stats').textContent.split(' ')[1];
+                    area.innerHTML = EDIT_PAGES[data.name].replace('info-count">-', `info-count">${total}`); 
+                }
+            } else {
+                search.style.visibility = 'visible';
+                const grid = document.createElement('div');
+                grid.className = 'grid'; grid.id = 'linkGrid';
+                const frag = document.createDocumentFragment();
+                data.items.forEach((i, idx) => {
+                    const card = createCard(i);
+                    card.onclick = () => { if(socket) socket.emit('linkClicked'); };
+                    frag.appendChild(card);
+                });
+                grid.appendChild(frag); area.appendChild(grid);
+            }
+        }
+
+        let isAdmin = false;
+        function checkAdmin() {
+            const p = document.getElementById('adminPass').value;
+            if(p === ADMIN_PASS) { isAdmin = true; renderContent(currentIdx); }
+            else alert("Invalid Password");
+        }
+
+        function createCard(i) {
+            const domain = new URL(i.url).hostname;
+            const a = document.createElement('a'); a.className = 'card'; a.href = i.url; a.target = '_blank';
+            a.innerHTML = `<img src="https://www.google.com/s2/favicons?sz=64&domain=${domain}" loading="lazy" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzMzMyI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48L3N2Zz4='">
+            <div class="card-name">${i.name}</div><div class="card-url">${domain}</div>`;
+            return a;
+        }
+
+        function setColor(c) { document.documentElement.style.setProperty('--accent', c); document.documentElement.style.setProperty('--accent-glow', c + '44'); }
+        
+        function enableDragging() {
+            const nav = document.getElementById('navArea'); let isDown = false, startY, scrollT;
+            nav.addEventListener('mousedown', e => { isDown = true; startY = e.pageY - nav.offsetTop; scrollT = nav.scrollTop; });
+            nav.addEventListener('mouseleave', () => isDown = false); nav.addEventListener('mouseup', () => isDown = false);
+            nav.addEventListener('mousemove', e => { if (!isDown) return; e.preventDefault(); const y = e.pageY - nav.offsetTop; nav.scrollTop = scrollT - (y - startY) * 1.5; });
+        }
+
+        document.getElementById('searchInput').addEventListener('input', e => {
+            const v = e.target.value.toLowerCase(), data = allCategories[currentIdx];
+            if (!data || data.type !== 'link') return;
+            const grid = document.getElementById('linkGrid'); grid.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            data.items.filter(i => i.name.toLowerCase().includes(v) || i.url.toLowerCase().includes(v)).forEach(i => frag.appendChild(createCard(i)));
+            grid.appendChild(frag);
+        });
+
+        window.onkeydown = e => { if (e.key === '/') { e.preventDefault(); document.getElementById('searchInput').focus(); } };
+        init();
+    </script>
+</body>
+</html>
