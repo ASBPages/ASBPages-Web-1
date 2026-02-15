@@ -1,7 +1,7 @@
 {
-  "name": "ultimate-portal-os",
+  "name": "portal-os-v7-final",
   "version": "7.0.0",
-  "description": "Portal with Realtime Analytics",
+  "description": "Ultimate Portal with Realtime Analytics",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
