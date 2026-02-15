@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PORTAL OS: ULTIMATE</title>
-    <!-- Socket.io (サーバー通信用) -->
+    <script src="/socket.io/socket.io.js"></script> 
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PORTAL Web: ULTIMATE</title>
     <script src="/socket.io/socket.io.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -317,5 +321,11 @@
         window.onkeydown = e => { if (e.key === '/') { e.preventDefault(); document.getElementById('searchInput').focus(); } };
         init();
     </script>
+card.onclick = () => {
+    clickTracker++;
+    localStorage.setItem('my_clicks', clickTracker);
+    if(socket) socket.emit('linkClicked');
+};
 </body>
+
 </html>
