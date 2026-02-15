@@ -8,8 +8,10 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const DATA_PATH = path.join(__dirname, 'stats.json');
+// 保存ファイルのパス
+const DATA_PATH = 'stats.json';
 
+// --- データの読み込み ---
 let stats = {
     totalVisits: 0,
     totalClicks: 0,
@@ -26,6 +28,7 @@ if (fs.existsSync(DATA_PATH)) {
     }
 }
 
+// --- データの保存 ---
 const saveStats = () => {
     try {
         const dataToSave = { ...stats, activeUsers: 0 };
@@ -40,13 +43,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 io.on('connection', (socket) => {
     stats.activeUsers++;
     stats.totalVisits++;
-    saveStats(); 
+    saveStats();
     
     io.emit('statsUpdate', stats);
 
     socket.on('linkClicked', () => {
         stats.totalClicks++;
-        saveStats(); 
+        saveStats();
         io.emit('statsUpdate', stats);
     });
 
