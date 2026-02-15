@@ -7,35 +7,15 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-
-// 保存ファイルのパス
 const DATA_PATH = 'stats.json';
 
-// --- データの読み込み ---
-let stats = {
-    totalVisits: 0,
-    totalClicks: 0,
-    activeUsers: 0
-};
-
+let stats = { totalVisits: 0, totalClicks: 0, activeUsers: 0 };
 if (fs.existsSync(DATA_PATH)) {
-    try {
-        const savedData = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
-        stats.totalVisits = savedData.totalVisits || 0;
-        stats.totalClicks = savedData.totalClicks || 0;
-    } catch (err) {
-        console.error("Failed to load stats:", err);
-    }
+    try { stats = { ...stats, ...JSON.parse(fs.readFileSync(DATA_PATH, 'utf8')) }; } catch (e) { console.error(e); }
 }
 
-// --- データの保存 ---
-const saveStats = () => {
-    try {
-        const dataToSave = { ...stats, activeUsers: 0 };
-        fs.writeFileSync(DATA_PATH, JSON.stringify(dataToSave), 'utf8');
-    } catch (err) {
-        console.error("Failed to save stats:", err);
-    }
+const save = () => {
+    try { fs.writeFileSync(DATA_PATH, JSON.stringify({ ...stats, activeUsers: 0 })); } catch (e) { console.error(e); }
 };
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -43,13 +23,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 io.on('connection', (socket) => {
     stats.activeUsers++;
     stats.totalVisits++;
-    saveStats();
-    
+    save();
     io.emit('statsUpdate', stats);
 
     socket.on('linkClicked', () => {
         stats.totalClicks++;
-        saveStats();
+        save();
         io.emit('statsUpdate', stats);
     });
 
@@ -60,6 +39,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
